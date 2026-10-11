@@ -852,8 +852,14 @@ bool ALE::ExecuteCall(int params, int res)
     // Check function type
     if (!lua_isfunction(L, base))
     {
-        ALE_LOG_ERROR("[ALE]: Cannot execute call: registered value is {}, not a function.", luaL_tolstring(L, base, NULL));
-        ASSERT(false); // stack probably corrupt
+        // FamilyLAN crash hardening: was ASSERT(false), which crashed the realm
+        // during bot logins (09:50 / 09:51 MT, 2026-10-10). Log, drop the call
+        // and leave the stack as the error path below does (nils for results).
+        ALE_LOG_ERROR("[ALE]: Cannot execute call: registered value is {}, not a function. Call skipped.", luaL_tolstring(L, base, NULL));
+        lua_settop(L, base - 1);
+        for (int i = 0; i < res; ++i)
+            lua_pushnil(L);
+        return false;
     }
 
     bool usetrace = ALEConfig::GetInstance().IsTraceBackEnabled();
